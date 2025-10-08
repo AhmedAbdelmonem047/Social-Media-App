@@ -1,4 +1,4 @@
-# 🧩 Social Post & Comment API (Node.js + Express + Mongoose)
+# 🧩 Social Media App (Node.js + Express + Mongoose)
 
 A RESTful backend built with **Node.js**, **Express**, and **Mongoose**, featuring:
 - Full user authentication & account management
