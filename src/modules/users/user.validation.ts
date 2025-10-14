@@ -40,7 +40,7 @@ export const signupSchema = {
 export const confirmEmailSchema = {
     body: z.object({
         email: z.email(),
-        otp: z.string().regex(/^d{6}$/).trim()
+        otp: z.string().regex(/^\d{6}$/).trim()
     }).required()
 }
 

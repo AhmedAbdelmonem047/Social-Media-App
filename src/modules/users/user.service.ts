@@ -122,7 +122,12 @@ class UserService {
 
     // ============= Get Profile ============ //
     getProfile = async (req: Request, res: Response, next: NextFunction) => {
-        return res.status(200).json({ message: "Done", user: req.user });
+        const user = await this._userModel.findOne({ _id: req.user?._id }, undefined, {
+            populate: [{
+                path: "friends"
+            }]
+        })
+        return res.status(200).json({ message: "Done", user });
     }
     // ====================================== //
 
@@ -270,7 +275,7 @@ class UserService {
     }
     // ====================================== //
 
-    
+
     // ========== Unfreeze Account ========== //
     unfreezeAccount = async (req: Request, res: Response, next: NextFunction) => {
         const { userId } = req.params;
@@ -431,7 +436,7 @@ class UserService {
             throw new AppError("User not found", 404);
 
         const unblockedUser = await this._userModel.updateOne({ _id: req.user?._id }, { $pull: { blockedUsers: user._id } });
-        
+
         return res.status(200).json({ message: "User Unblocked" });
     }
     // ====================================== //

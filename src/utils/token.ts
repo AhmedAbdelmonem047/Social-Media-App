@@ -21,7 +21,7 @@ export const VerifyToken = async ({ token, signature }: { token: string, signatu
     return jwt.verify(token, signature) as JwtPayload;
 }
 
-export const getSignature = async (tokenType: TokenType, prefix: string) => {
+export const getSignature = async (prefix: string, tokenType: TokenType = TokenType.access) => {
     if (tokenType === TokenType.access) {
         if (prefix === process.env.BEARER_USER)
             return process.env.ACCESS_TOKEN_USER!
@@ -45,7 +45,7 @@ export const decodeTokenAndFetchUser = async (token: string, signature: string) 
     const decodedToken = await VerifyToken({ token, signature });
     if (!decodedToken)
         throw new AppError("Invalid token", 400);
-    const user = await _userModel.findOne({ email: decodedToken.email });
+    const user = await _userModel.findOne({ _id: decodedToken.id });
     if (!user)
         throw new AppError("User not found", 404);
     if (!user?.isConfirmed)

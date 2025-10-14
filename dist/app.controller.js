@@ -13,6 +13,7 @@ const express_rate_limit_1 = require("express-rate-limit");
 const user_controller_1 = __importDefault(require("./modules/users/user.controller"));
 const connectionDB_1 = __importDefault(require("./DB/connectionDB"));
 const post_controller_1 = __importDefault(require("./modules/posts/post.controller"));
+const s3_config_js_1 = require("./utils/s3.config.js");
 (0, dotenv_1.config)({ path: (0, path_1.resolve)("./config/.env") });
 const app = (0, express_1.default)();
 const port = process.env.PORT || 5000;
@@ -33,12 +34,21 @@ const bootstrap = async () => {
     app.get('/', (req, res, next) => res.status(200).json({ message: "Welcome to SocialMediaApp" }));
     app.use('/users', user_controller_1.default);
     app.use('/posts', post_controller_1.default);
+    app.get("/upload/*path", async (req, res, next) => {
+        const { path } = req.params;
+        const Key = path.join("/");
+        const result = await (0, s3_config_js_1.getFile)({ Key });
+        const stream = result.Body;
+        res.set("cross-origin-resource-policy", "cross-origin");
+        res.setHeader("Content-Type", result?.ContentType || "application/oclet-stream");
+        stream.pipe(res);
+    });
     app.get('{/*z}', (req, res, next) => {
         throw new classError_1.AppError(`Invalid URL ${req.originalUrl}`, 404);
     });
     app.use((err, req, res, next) => {
         return res.status(err.statusCode || 500).json({ message: err.message, stack: err.stack });
     });
-    app.listen(port, () => console.log(`SocialMediaApp listening on port ${port}!`));
+    const httpServer = app.listen(port, () => console.log(`SocialMediaApp listening on port ${port}!`));
 };
 exports.default = bootstrap;

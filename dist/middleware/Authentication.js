@@ -9,7 +9,7 @@ const Authentication = (tokenType = token_1.TokenType.access) => {
         const [prefix, token] = authorization?.split(" ") || [];
         if (!prefix || !token)
             throw new classError_1.AppError("Invalid token", 400);
-        const signature = await (0, token_1.getSignature)(tokenType, prefix);
+        const signature = await (0, token_1.getSignature)(prefix, tokenType);
         if (!signature)
             throw new Error("Invalid prefix token", { cause: 404 });
         const decoded = await (0, token_1.decodeTokenAndFetchUser)(token, signature);

@@ -40,7 +40,7 @@ exports.signupSchema = {
 exports.confirmEmailSchema = {
     body: zod_1.default.object({
         email: zod_1.default.email(),
-        otp: zod_1.default.string().regex(/^d{6}$/).trim()
+        otp: zod_1.default.string().regex(/^\d{6}$/).trim()
     }).required()
 };
 exports.forgetPasswordSchema = {

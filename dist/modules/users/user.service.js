@@ -124,7 +124,12 @@ class UserService {
         return res.status(200).json({ message: "Login successful", accessToken, refreshToken });
     };
     getProfile = async (req, res, next) => {
-        return res.status(200).json({ message: "Done", user: req.user });
+        const user = await this._userModel.findOne({ _id: req.user?._id }, undefined, {
+            populate: [{
+                    path: "friends"
+                }]
+        });
+        return res.status(200).json({ message: "Done", user });
     };
     logout = async (req, res, next) => {
         const { flag } = req.body;

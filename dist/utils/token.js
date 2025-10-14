@@ -25,7 +25,7 @@ const VerifyToken = async ({ token, signature }) => {
     return jsonwebtoken_1.default.verify(token, signature);
 };
 exports.VerifyToken = VerifyToken;
-const getSignature = async (tokenType, prefix) => {
+const getSignature = async (prefix, tokenType = TokenType.access) => {
     if (tokenType === TokenType.access) {
         if (prefix === process.env.BEARER_USER)
             return process.env.ACCESS_TOKEN_USER;
@@ -49,7 +49,7 @@ const decodeTokenAndFetchUser = async (token, signature) => {
     const decodedToken = await (0, exports.VerifyToken)({ token, signature });
     if (!decodedToken)
         throw new classError_1.AppError("Invalid token", 400);
-    const user = await _userModel.findOne({ email: decodedToken.email });
+    const user = await _userModel.findOne({ _id: decodedToken.id });
     if (!user)
         throw new classError_1.AppError("User not found", 404);
     if (!user?.isConfirmed)

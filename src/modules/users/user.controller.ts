@@ -6,7 +6,10 @@ import { Authentication, Authorization } from "../../middleware/authentication";
 import { TokenType } from "../../utils/token";
 import { FileTypes, multerCloud } from "../../middleware/multer.cloud";
 import { RoleType } from "../../DB/models/user.model.js";
+import chatRouter from "../chat/chat.controller.js";
 const userRouter = Router()
+
+userRouter.use("/:userId/chat", chatRouter);
 
 userRouter.post('/signup', Validation(UV.signupSchema), US.signup);
 userRouter.patch('/confirmEmail', Validation(UV.confirmEmailSchema), US.confirmEmail);

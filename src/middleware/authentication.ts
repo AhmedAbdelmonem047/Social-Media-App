@@ -12,7 +12,7 @@ export const Authentication = (tokenType: TokenType = TokenType.access) => {
         if (!prefix || !token)
             throw new AppError("Invalid token", 400);
 
-        const signature = await getSignature(tokenType, prefix);
+        const signature = await getSignature(prefix, tokenType);
         if (!signature)
             throw new Error("Invalid prefix token", { cause: 404 });
 
