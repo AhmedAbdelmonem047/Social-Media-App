@@ -14,6 +14,9 @@ const user_controller_1 = __importDefault(require("./modules/users/user.controll
 const connectionDB_1 = __importDefault(require("./DB/connectionDB"));
 const post_controller_1 = __importDefault(require("./modules/posts/post.controller"));
 const s3_config_js_1 = require("./utils/s3.config.js");
+const express_2 = require("graphql-http/lib/use/express");
+const schema_gql_js_1 = require("./modules/graphql/schema.gql.js");
+const gateway_js_1 = require("./modules/gateway/gateway.js");
 (0, dotenv_1.config)({ path: (0, path_1.resolve)("./config/.env") });
 const app = (0, express_1.default)();
 const port = process.env.PORT || 5000;
@@ -29,8 +32,8 @@ const bootstrap = async () => {
     app.use(express_1.default.json());
     app.use((0, cors_1.default)());
     app.use((0, helmet_1.default)());
-    app.use(limiter);
     await (0, connectionDB_1.default)();
+    app.all('/graphql', (0, express_2.createHandler)({ schema: schema_gql_js_1.schemaGql, context: (req) => ({ req }) }));
     app.get('/', (req, res, next) => res.status(200).json({ message: "Welcome to SocialMediaApp" }));
     app.use('/users', user_controller_1.default);
     app.use('/posts', post_controller_1.default);
@@ -50,5 +53,6 @@ const bootstrap = async () => {
         return res.status(err.statusCode || 500).json({ message: err.message, stack: err.stack });
     });
     const httpServer = app.listen(port, () => console.log(`SocialMediaApp listening on port ${port}!`));
+    (0, gateway_js_1.initializeGateway)(httpServer);
 };
 exports.default = bootstrap;

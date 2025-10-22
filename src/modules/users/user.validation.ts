@@ -1,5 +1,5 @@
 import { RequestActionEnum } from './../../DB/models/friendRequest.model';
-import z from 'zod'
+import z, { email } from 'zod'
 import { FlagType, GenderType } from '../../DB/models/user.model';
 import { generalRules } from '../../utils/generalRules';
 
@@ -78,6 +78,19 @@ export const deleteAccountSchema = {
         userId: generalRules.id
     }).required()
 }
+
+export const getOneUserGQLSchema = z.strictObject({
+    id: generalRules.id
+}).required()
+
+export const createUserGQLSchema = z.strictObject({
+    fName: z.string().min(2).trim(),
+    lName: z.string().min(2).trim(),
+    password: z.string(),
+    email: generalRules.email,
+    age: z.number().min(18).max(65),
+    gender: z.enum([GenderType.male, GenderType.female])
+}).required()
 
 export type loginSchemaType = z.infer<typeof loginSchema.body>
 export type loginWithGmailSchemaType = z.infer<typeof loginWithGmailSchema.body>

@@ -1,31 +1,34 @@
-import mongoose, { UpdateQuery } from 'mongoose';
-import {  deleteFiles, uploadFiles } from '../../utils/s3.config';
+import mongoose, { HydratedDocument, UpdateQuery } from 'mongoose';
+import { deleteFiles, uploadFiles } from '../../utils/s3.config';
 import { NextFunction, Request, Response } from "express";
 import { AppError } from "../../utils/classError";
 import { v4 as uuidv4 } from 'uuid';
 import { PostRepository } from '../../repositories/post.repository';
-import postModel, {  IPost } from '../../DB/models/post.model';
-import userModel, { RoleType } from '../../DB/models/user.model';
+import postModel, { AvailabilityEnum, IPost } from '../../DB/models/post.model';
+import userModel, { IUser, RoleType } from '../../DB/models/user.model';
 import { UserRepository } from '../../repositories/user.repository';
-import { ActionType, likePostQuerySchemaType, likePostSchemaType } from './post.validation';
-import { CommentRepository } from '../../repositories/comment.repository';
-import commentModel from '../../DB/models/comment.model';
-import { AvailabilityQuery, deletePostCascade } from '../../utils/helperFunctions';
-import { eventEmitter } from '../../utils/events.js';
+import { ActionType, likePostGQLSchema, likePostQuerySchemaType, likePostSchemaType } from './post.validation';
+import { _postModel, AvailabilityQuery, deletePostCascade } from '../../utils/helperFunctions';
+import { eventEmitter } from '../../utils/events';
+import { ValidationGQL } from '../../middleware/validation';
+import { AuthenticationGQL } from '../../middleware/authentication';
+import { GraphQLError } from 'graphql';
+import { connectionSockets, getIo } from '../gateway/gateway.js';
 
 
 class PostService {
 
     private _userModel = new UserRepository(userModel);
     private _postModel = new PostRepository(postModel);
-    private _commentModel = new CommentRepository(commentModel);
 
     constructor() { }
+
+    // ======================================== APIs ======================================== //
 
     // ============= Create Post ============ //
     createPost = async (req: Request, res: Response, next: NextFunction) => {
 
-        if (req.body.tags.length && ((await this._userModel.find({ $in: req?.body?.tags })).length !== req?.body?.tags?.length))
+        if (req?.body?.tags?.length && ((await this._userModel.find({ $in: req?.body?.tags })).length !== req?.body?.tags?.length))
             throw new AppError("Invalid user id", 400);
 
         const assetFolderId = uuidv4();
@@ -38,7 +41,7 @@ class PostService {
             await deleteFiles({ urls: attachments || [] });
             throw new AppError("Failed to create post", 500);
         }
-        if (req.body.tags.length)
+        if (req?.body?.tags?.length)
             eventEmitter.emit("mentionTags", { postId: post._id, authorId: req.user?._id, tags: req.body.tags });
 
         return res.status(201).json({ message: "Post created successfully", post });
@@ -54,11 +57,11 @@ class PostService {
         if (action === ActionType.unlike)
             updateQuery = { $pull: { likes: req.user?._id } };
 
-        const post = await this._postModel.findOneAndUpdate({ _id: postId, $or: AvailabilityQuery(req) }, updateQuery, { new: true });
+        const post = await this._postModel.findOneAndUpdate({ _id: postId, $or: AvailabilityQuery(req?.user as HydratedDocument<IUser>) }, { ...updateQuery }, { new: true });
         if (!post)
             throw new AppError(`Failed to ${action || ActionType.like} post`, 400);
 
-        return res.status(201).json({ message: `Post ${action || ActionType.like}` });
+        return res.status(201).json({ message: `Post ${action || ActionType.like}d` });
     }
     // ====================================== //
 
@@ -211,6 +214,48 @@ class PostService {
         return res.status(200).json({ message: "Post, Comments, and replies deleted successfully" });
     }
     // ====================================== //
+
+    // ====================================================================================== //
+
+    
+    // ======================================= GraphQL ====================================== //
+
+    // ============ Get All Posts =========== //
+    getAllPostsGQL = async (parent: any, args: any) => {
+        const posts = await this._postModel.find({})
+        return posts;
+    }
+    // ====================================== //
+
+    // ======= Get All Posts Paginated ====== //
+    getAllPostsPaginatedGQL = async (parent: any, args: any) => {
+        let { page = 1, limit = 5 } = args;
+        const posts = await this._postModel.getAllPaginated({ filter: {}, query: { page, limit } })
+        return posts;
+    }
+    // ====================================== //
+
+    // ============== Like Post ============= //
+    likePostGQL = async (parent: any, args: any, context: any) => {
+        const { postId, action } = args;
+        await ValidationGQL<typeof args>(likePostGQLSchema, args)
+        const { user } = await AuthenticationGQL(context.req.headers.authorization);
+
+        let updateQuery: UpdateQuery<IPost> = action === ActionType.like ? { $addToSet: { likes: user?._id } } : { $pull: { likes: user?._id } };
+
+        const post = await this._postModel.findOneAndUpdate({ _id: postId, $or: AvailabilityQuery(user) }, { ...updateQuery }, { new: true });
+        if (!post)
+            throw new GraphQLError(`Post not found`, { extensions: { http: { code: 404 } } });
+
+        if (action === ActionType.like)
+            getIo().to(connectionSockets.get(post.createdBy.toString())!).emit("likePost", { postId, userId: user._id });
+
+        return `Post ${action || ActionType.like}d`;
+    }
+    // ====================================== //
+
+
+    // ====================================================================================== //
 }
 
 export default new PostService();

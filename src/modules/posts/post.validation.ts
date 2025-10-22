@@ -11,8 +11,8 @@ export const createPostSchema = {
     body: z.strictObject({
         content: z.string().min(5).max(1000).optional(),
         attachments: z.array(generalRules.file).max(2).optional(),
-        allowComment: z.enum(AllowCommentEnum).default(AllowCommentEnum.allow).optional,
-        availability: z.enum(AvailabilityEnum).default(AvailabilityEnum.public).optional,
+        allowComment: z.enum(AllowCommentEnum).default(AllowCommentEnum.allow).optional(),
+        availability: z.enum(AvailabilityEnum).default(AvailabilityEnum.public).optional(),
         tags: z.array(generalRules.id).refine((value) => { return new Set(value).size === value?.length }, { message: "Duplicated tags" }).optional()
     }).superRefine((data, ctx) => {
         if (!data?.content && !data?.attachments)
@@ -47,6 +47,12 @@ export const updatePostSchema = {
             ctx.addIssue({ code: "custom", message: "At least one field is required to update post" });
     })
 }
+
+export const likePostGQLSchema = z.strictObject({
+    postId: generalRules.id,
+    action: z.enum(ActionType).default(ActionType.like)
+})
+
 
 
 export type createPostSchemaType = z.infer<typeof createPostSchema.body>

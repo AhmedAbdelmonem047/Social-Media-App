@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express"
 import { ZodType } from "zod"
 import { AppError } from "../utils/classError"
+import { GraphQLError } from "graphql"
 
 type ReqType = keyof Request
 type SchemaType = Partial<Record<ReqType, ZodType>>
@@ -12,9 +13,9 @@ export const Validation = (schema: SchemaType) => {
 
         for (const key of Object.keys(schema) as ReqType[]) {
             if (!schema[key]) continue;
-            if(req?.file)
+            if (req?.file)
                 req.body.attachments = req.file;
-            if(req?.files)
+            if (req?.files)
                 req.body.attachments = req.files;
             const result = schema[key].safeParse(req[key]);
             if (!result.success)
@@ -26,4 +27,25 @@ export const Validation = (schema: SchemaType) => {
 
         next();
     }
+}
+
+export const ValidationGQL = async <T>(schema: ZodType, args: T) => {
+    const validationErrors = []
+
+
+    const result = schema.safeParse(args);
+    if (!result.success)
+        validationErrors.push(result.error);
+
+
+    if (validationErrors.length)
+        throw new GraphQLError("Validation Error", {
+            extensions: {
+                code: "VALIDATION_ERROR",
+                http: { status: 400 },
+                error: JSON.parse(validationErrors as unknown as string)
+            }
+        });
+
+
 }

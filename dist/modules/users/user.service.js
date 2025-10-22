@@ -37,6 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const s3_config_1 = require("./../../utils/s3.config");
+const user_validation_1 = require("./user.validation");
 const user_model_1 = __importStar(require("../../DB/models/user.model"));
 const user_repository_1 = require("../../repositories/user.repository");
 const classError_1 = require("../../utils/classError");
@@ -50,8 +51,12 @@ const revokeToken_model_1 = __importDefault(require("../../DB/models/revokeToken
 const google_auth_library_1 = require("google-auth-library");
 const s3_config_2 = require("../../utils/s3.config");
 const helperFunctions_1 = require("../../utils/helperFunctions");
+const mongoose_1 = require("mongoose");
 const friendRequest_repository_1 = require("../../repositories/friendRequest.repository");
 const friendRequest_model_1 = __importStar(require("../../DB/models/friendRequest.model"));
+const graphql_1 = require("graphql");
+const authentication_js_1 = require("../../middleware/authentication.js");
+const validation_js_1 = require("../../middleware/validation.js");
 class UserService {
     _userModel = new user_repository_1.UserRepository(user_model_1.default);
     _revokeTokenModel = new revokeToken_repository_1.RevokeTokenRepository(revokeToken_model_1.default);
@@ -323,6 +328,63 @@ class UserService {
             throw new classError_1.AppError("User not found", 404);
         const unblockedUser = await this._userModel.updateOne({ _id: req.user?._id }, { $pull: { blockedUsers: user._id } });
         return res.status(200).json({ message: "User Unblocked" });
+    };
+    getUserGQL = async (parent, args, context) => {
+        const { user } = await (0, authentication_js_1.AuthenticationGQL)(context.req.headers.authorization);
+        const userExists = await this._userModel.findOne({ _id: user._id }, undefined, {
+            populate: [{
+                    path: "friends",
+                    select: "fName lName email userName"
+                }]
+        });
+        if (!userExists)
+            throw new graphql_1.GraphQLError("User not found", {
+                extensions: {
+                    message: "User not found",
+                    statusCode: 404
+                }
+            });
+        return userExists;
+    };
+    getOneUserGQL = async (parent, args) => {
+        const { id } = args;
+        await (0, validation_js_1.ValidationGQL)(user_validation_1.getOneUserGQLSchema, args);
+        const user = await this._userModel.findOne({ _id: mongoose_1.Types.ObjectId.createFromHexString(id) }, undefined, {
+            populate: [{
+                    path: "friends",
+                    select: "fName lName email userName"
+                }]
+        });
+        if (!user)
+            throw new graphql_1.GraphQLError("User not found", {
+                extensions: {
+                    message: "User not found",
+                    statusCode: 404
+                }
+            });
+        return user;
+    };
+    getAllUsersGQL = async (parent, args) => {
+        const users = await this._userModel.find({});
+        return users;
+    };
+    createUserGQL = async (parent, args) => {
+        const { fName, lName, email, password, age, gender } = args;
+        await (0, validation_js_1.ValidationGQL)(user_validation_1.createUserGQLSchema, args);
+        const isUser = await this._userModel.findOne({ email });
+        if (isUser)
+            throw new graphql_1.GraphQLError("User already exists", {
+                extensions: {
+                    message: "User already exists",
+                    statusCode: 409
+                }
+            });
+        const otp = await (0, sendEmail_1.generateOTP)();
+        const hashedOTP = await (0, hash_1.Hash)(String(otp));
+        events_1.eventEmitter.emit("confirmEmail", { email, otp });
+        const hashedPassword = await (0, hash_1.Hash)(password);
+        const user = await this._userModel.createOneUser({ fName, lName, email, password: hashedPassword, age, gender, otp: hashedOTP });
+        return user;
     };
 }
 exports.default = new UserService();

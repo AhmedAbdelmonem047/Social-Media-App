@@ -1,11 +1,11 @@
 import { HydratedDocument, Types } from 'mongoose';
-import {  deleteFiles, uploadFiles } from '../../utils/s3.config';
+import { deleteFiles, uploadFiles } from '../../utils/s3.config';
 import { NextFunction, Request, Response } from "express";
 import { AppError } from "../../utils/classError";
 import { v4 as uuidv4 } from 'uuid';
 import { PostRepository } from '../../repositories/post.repository';
 import postModel, { AllowCommentEnum, IPost } from '../../DB/models/post.model';
-import userModel, { RoleType } from '../../DB/models/user.model';
+import userModel, { IUser, RoleType } from '../../DB/models/user.model';
 import { UserRepository } from '../../repositories/user.repository';
 import { CommentRepository } from '../../repositories/comment.repository';
 import commentModel, { IComment, onModelEnum } from '../../DB/models/comment.model';
@@ -38,7 +38,7 @@ class CommentService {
                 {
                     populate: [{
                         path: "refId",
-                        match: { allowComment: AllowCommentEnum.allow, $or: AvailabilityQuery(req) }
+                        match: { allowComment: AllowCommentEnum.allow, $or: AvailabilityQuery(req?.user as HydratedDocument<IUser>) }
                     }]
                 });
 
@@ -49,7 +49,7 @@ class CommentService {
             if (commentId)
                 throw new AppError("onModel must be Comment to create reply", 400);
 
-            const post = await this._postModel.findOne({ _id: postId, allowComment: AllowCommentEnum.allow, $or: AvailabilityQuery(req) });
+            const post = await this._postModel.findOne({ _id: postId, allowComment: AllowCommentEnum.allow, $or: AvailabilityQuery(req?.user as HydratedDocument<IUser>) });
             if (!post)
                 throw new AppError("Post not found or you're not authorized", 400);
             doc = post;

@@ -1,11 +1,12 @@
-import mongoose, { Document } from 'mongoose';
+import mongoose, { Document, HydratedDocument } from 'mongoose';
 import commentModel, { IComment, onModelEnum } from '../DB/models/comment.model';
 import postModel, { AvailabilityEnum, IPost } from '../DB/models/post.model';
 import { CommentRepository } from '../repositories/comment.repository';
 import { PostRepository } from "../repositories/post.repository";
 import { Request } from 'express';
+import { IUser } from '../DB/models/user.model.js';
 
-const _postModel = new PostRepository(postModel);
+export const _postModel = new PostRepository(postModel);
 const _commentModel = new CommentRepository(commentModel);
 
 async function deleteCommentWithReplies(commentId: mongoose.Schema.Types.ObjectId) {
@@ -49,11 +50,11 @@ export async function getPostFromComment(commentId: mongoose.Types.ObjectId): Pr
   }
 }
 
-export const AvailabilityQuery = (req: Request) => {
+export const AvailabilityQuery = (user: HydratedDocument<IUser>) => {
   return [
     { availability: AvailabilityEnum.public },
-    { availability: AvailabilityEnum.private, createdBy: req.user?._id },
-    { availability: AvailabilityEnum.friends, createdBy: { $in: [...req.user?.friends || [], req.user?._id] } }
+    { availability: AvailabilityEnum.private, createdBy: user?._id },
+    { availability: AvailabilityEnum.friends, createdBy: { $in: [...user?.friends || [], user?._id] } }
   ]
 }
 

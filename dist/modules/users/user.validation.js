@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteAccountSchema = exports.acceptDeleteSchema = exports.freezeAccountSchema = exports.resetPasswordSchema = exports.forgetPasswordSchema = exports.confirmEmailSchema = exports.signupSchema = exports.logoutSchema = exports.loginWithGmailSchema = exports.loginSchema = void 0;
+exports.createUserGQLSchema = exports.getOneUserGQLSchema = exports.deleteAccountSchema = exports.acceptDeleteSchema = exports.freezeAccountSchema = exports.resetPasswordSchema = exports.forgetPasswordSchema = exports.confirmEmailSchema = exports.signupSchema = exports.logoutSchema = exports.loginWithGmailSchema = exports.loginSchema = void 0;
 const friendRequest_model_1 = require("./../../DB/models/friendRequest.model");
 const zod_1 = __importDefault(require("zod"));
 const user_model_1 = require("../../DB/models/user.model");
@@ -73,3 +73,14 @@ exports.deleteAccountSchema = {
         userId: generalRules_1.generalRules.id
     }).required()
 };
+exports.getOneUserGQLSchema = zod_1.default.strictObject({
+    id: generalRules_1.generalRules.id
+}).required();
+exports.createUserGQLSchema = zod_1.default.strictObject({
+    fName: zod_1.default.string().min(2).trim(),
+    lName: zod_1.default.string().min(2).trim(),
+    password: zod_1.default.string(),
+    email: generalRules_1.generalRules.email,
+    age: zod_1.default.number().min(18).max(65),
+    gender: zod_1.default.enum([user_model_1.GenderType.male, user_model_1.GenderType.female])
+}).required();

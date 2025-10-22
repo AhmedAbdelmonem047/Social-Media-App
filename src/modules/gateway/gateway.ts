@@ -58,7 +58,7 @@ export const initializeGateway = (httpServer: HttpServer) => {
 };
 
 
-const getIo = () => {
+export const getIo = () => {
     if (!io)
         throw new AppError("Io not initialized", 400)
     return io;

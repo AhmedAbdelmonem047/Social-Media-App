@@ -1,6 +1,6 @@
 import { createUploadFilePresignedURL, uploadFiles, uploadLargeFile } from './../../utils/s3.config';
 import { NextFunction, Request, Response } from "express";
-import { confirmEmailSchemaType, forgetPasswordSchemaType, loginSchemaType, loginWithGmailSchemaType, logoutSchemaType, resetPasswordSchemaType, signupSchemaType } from "./user.validation";
+import { confirmEmailSchemaType, createUserGQLSchema, forgetPasswordSchemaType, getOneUserGQLSchema, loginSchemaType, loginWithGmailSchemaType, logoutSchemaType, resetPasswordSchemaType, signupSchemaType } from "./user.validation";
 import userModel, { FlagType, ProviderType, RoleType } from "../../DB/models/user.model";
 import { UserRepository } from "../../repositories/user.repository";
 import { AppError } from "../../utils/classError";
@@ -17,6 +17,9 @@ import { deleteUserCascade } from '../../utils/helperFunctions';
 import mongoose, { Types } from 'mongoose';
 import { FriendRequestRepository } from '../../repositories/friendRequest.repository';
 import friendRequestModel, { RequestActionEnum } from '../../DB/models/friendRequest.model';
+import { GraphQLError } from 'graphql';
+import { AuthenticationGQL } from '../../middleware/authentication.js';
+import { ValidationGQL } from '../../middleware/validation.js';
 
 class UserService {
 
@@ -24,7 +27,7 @@ class UserService {
     private _revokeTokenModel = new RevokeTokenRepository(revokeTokenModel);
     private _friendRequestModel = new FriendRequestRepository(friendRequestModel);
     constructor() { }
-
+    // ========================================== APIs ========================================== //
     // =============== Signup =============== //
     signup = async (req: Request, res: Response, next: NextFunction) => {
         const { userName, email, password, age, address, phone, gender }: signupSchemaType = req.body;
@@ -440,6 +443,87 @@ class UserService {
         return res.status(200).json({ message: "User Unblocked" });
     }
     // ====================================== //
+
+    // ========================================================================================== //
+
+
+
+    // ======================================== GraphQl ========================================= //
+
+    // ============== Get User =============== //
+    getUserGQL = async (parent: any, args: any, context: any) => {
+        const { user } = await AuthenticationGQL(context.req.headers.authorization);
+        const userExists = await this._userModel.findOne({ _id: user._id }, undefined, {
+            populate: [{
+                path: "friends",
+                select: "fName lName email userName"
+            }]
+        });
+        if (!userExists)
+            throw new GraphQLError("User not found", {
+                extensions: {
+                    message: "User not found",
+                    statusCode: 404
+                }
+            });
+        return userExists
+    }
+    // ======================================== //
+
+    // ============= Get One User ============= //
+    getOneUserGQL = async (parent: any, args: { id: string }) => {
+        const { id } = args;
+        await ValidationGQL<typeof args>(getOneUserGQLSchema, args);
+        const user = await this._userModel.findOne({ _id: Types.ObjectId.createFromHexString(id) }, undefined, {
+            populate: [{
+                path: "friends",
+                select: "fName lName email userName"
+            }]
+        });
+        if (!user)
+            throw new GraphQLError("User not found", {
+                extensions: {
+                    message: "User not found",
+                    statusCode: 404
+                }
+            });
+        return user
+    }
+    // ======================================== //
+
+    // ============== Get Users =============== //
+    getAllUsersGQL = async (parent: any, args: any) => {
+        const users = await this._userModel.find({});
+        return users;
+    }
+    // ======================================== //
+
+    // ============== Create User ============= //
+    createUserGQL = async (parent: any, args: any) => {
+        const { fName, lName, email, password, age, gender } = args;
+        await ValidationGQL<typeof args>(createUserGQLSchema, args);
+        const isUser = await this._userModel.findOne({ email });
+        if (isUser)
+            throw new GraphQLError("User already exists", {
+                extensions: {
+                    message: "User already exists",
+                    statusCode: 409
+                }
+            });
+
+        const otp = await generateOTP();
+        const hashedOTP = await Hash(String(otp))
+        eventEmitter.emit("confirmEmail", { email, otp });
+
+        const hashedPassword = await Hash(password);
+        const user = await this._userModel.createOneUser({ fName, lName, email, password: hashedPassword, age, gender, otp: hashedOTP });
+
+        return user
+    }
+    // ======================================== //
+
+    // ========================================================================================== //
+
 }
 
 export default new UserService()

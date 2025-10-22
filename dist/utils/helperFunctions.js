@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AvailabilityQuery = void 0;
+exports.AvailabilityQuery = exports._postModel = void 0;
 exports.deletePostCascade = deletePostCascade;
 exports.getPostFromComment = getPostFromComment;
 exports.deleteUserCascade = deleteUserCascade;
@@ -45,7 +45,7 @@ const comment_model_1 = __importStar(require("../DB/models/comment.model"));
 const post_model_1 = __importStar(require("../DB/models/post.model"));
 const comment_repository_1 = require("../repositories/comment.repository");
 const post_repository_1 = require("../repositories/post.repository");
-const _postModel = new post_repository_1.PostRepository(post_model_1.default);
+exports._postModel = new post_repository_1.PostRepository(post_model_1.default);
 const _commentModel = new comment_repository_1.CommentRepository(comment_model_1.default);
 async function deleteCommentWithReplies(commentId) {
     const replies = await _commentModel.find({ refId: commentId, onModel: comment_model_1.onModelEnum.Comment });
@@ -55,7 +55,7 @@ async function deleteCommentWithReplies(commentId) {
     await _commentModel.findByIdAndDelete(commentId);
 }
 async function deletePostCascade(postId) {
-    const deletedPost = await _postModel.findByIdAndDelete(postId);
+    const deletedPost = await exports._postModel.findByIdAndDelete(postId);
     if (!deletedPost)
         return false;
     const comments = await _commentModel.find({ refId: postId, onModel: comment_model_1.onModelEnum.Post });
@@ -71,22 +71,22 @@ async function getPostFromComment(commentId) {
         if (!comment)
             throw new Error("Comment not found");
         if (comment.onModel === "Post") {
-            const post = await _postModel.findById(comment.refId);
+            const post = await exports._postModel.findById(comment.refId);
             return post;
         }
         currentId = comment.refId;
     }
 }
-const AvailabilityQuery = (req) => {
+const AvailabilityQuery = (user) => {
     return [
         { availability: post_model_1.AvailabilityEnum.public },
-        { availability: post_model_1.AvailabilityEnum.private, createdBy: req.user?._id },
-        { availability: post_model_1.AvailabilityEnum.friends, createdBy: { $in: [...req.user?.friends || [], req.user?._id] } }
+        { availability: post_model_1.AvailabilityEnum.private, createdBy: user?._id },
+        { availability: post_model_1.AvailabilityEnum.friends, createdBy: { $in: [...user?.friends || [], user?._id] } }
     ];
 };
 exports.AvailabilityQuery = AvailabilityQuery;
 async function deleteUserCascade(userId) {
-    const posts = await _postModel.find({ createdBy: userId });
+    const posts = await exports._postModel.find({ createdBy: userId });
     for (const post of posts) {
         await deletePostCascade(post._id);
     }

@@ -59,7 +59,7 @@ class CommentService {
             const comment = await this._commentModel.findOne({ _id: commentId, refId: postId }, undefined, {
                 populate: [{
                         path: "refId",
-                        match: { allowComment: post_model_1.AllowCommentEnum.allow, $or: (0, helperFunctions_1.AvailabilityQuery)(req) }
+                        match: { allowComment: post_model_1.AllowCommentEnum.allow, $or: (0, helperFunctions_1.AvailabilityQuery)(req?.user) }
                     }]
             });
             if (!comment?.refId)
@@ -69,7 +69,7 @@ class CommentService {
         else if (onModel === comment_model_1.onModelEnum.Post) {
             if (commentId)
                 throw new classError_1.AppError("onModel must be Comment to create reply", 400);
-            const post = await this._postModel.findOne({ _id: postId, allowComment: post_model_1.AllowCommentEnum.allow, $or: (0, helperFunctions_1.AvailabilityQuery)(req) });
+            const post = await this._postModel.findOne({ _id: postId, allowComment: post_model_1.AllowCommentEnum.allow, $or: (0, helperFunctions_1.AvailabilityQuery)(req?.user) });
             if (!post)
                 throw new classError_1.AppError("Post not found or you're not authorized", 400);
             doc = post;

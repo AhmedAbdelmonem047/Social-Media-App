@@ -9,6 +9,11 @@ import userRouter from './modules/users/user.controller';
 import connectionDB from './DB/connectionDB';
 import postRouter from './modules/posts/post.controller';
 import { getFile } from './utils/s3.config.js';
+import { createHandler } from 'graphql-http/lib/use/express';
+import { schemaGql } from './modules/graphql/schema.gql.js';
+import { Authentication } from './middleware/authentication.js';
+import { initializeGateway } from './modules/gateway/gateway.js';
+
 
 config({ path: resolve("./config/.env") })
 
@@ -28,8 +33,10 @@ const bootstrap = async () => {
     app.use(express.json());
     app.use(cors());
     app.use(helmet());
-    app.use(limiter);
+    // app.use(limiter);
     await connectionDB();
+
+    app.all('/graphql', createHandler({ schema: schemaGql, context: (req) => ({ req }) }));
 
     app.get('/', (req: Request, res: Response, next: NextFunction) => res.status(200).json({ message: "Welcome to SocialMediaApp" }));
 
@@ -55,6 +62,7 @@ const bootstrap = async () => {
     })
 
     const httpServer = app.listen(port, () => console.log(`SocialMediaApp listening on port ${port}!`))
+    initializeGateway(httpServer);
 }
 
 export default bootstrap;

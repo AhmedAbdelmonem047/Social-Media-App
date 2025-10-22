@@ -44,17 +44,18 @@ const post_model_1 = __importDefault(require("../../DB/models/post.model"));
 const user_model_1 = __importStar(require("../../DB/models/user.model"));
 const user_repository_1 = require("../../repositories/user.repository");
 const post_validation_1 = require("./post.validation");
-const comment_repository_1 = require("../../repositories/comment.repository");
-const comment_model_1 = __importDefault(require("../../DB/models/comment.model"));
 const helperFunctions_1 = require("../../utils/helperFunctions");
-const events_js_1 = require("../../utils/events.js");
+const events_1 = require("../../utils/events");
+const validation_1 = require("../../middleware/validation");
+const authentication_1 = require("../../middleware/authentication");
+const graphql_1 = require("graphql");
+const gateway_js_1 = require("../gateway/gateway.js");
 class PostService {
     _userModel = new user_repository_1.UserRepository(user_model_1.default);
     _postModel = new post_repository_1.PostRepository(post_model_1.default);
-    _commentModel = new comment_repository_1.CommentRepository(comment_model_1.default);
     constructor() { }
     createPost = async (req, res, next) => {
-        if (req.body.tags.length && ((await this._userModel.find({ $in: req?.body?.tags })).length !== req?.body?.tags?.length))
+        if (req?.body?.tags?.length && ((await this._userModel.find({ $in: req?.body?.tags })).length !== req?.body?.tags?.length))
             throw new classError_1.AppError("Invalid user id", 400);
         const assetFolderId = (0, uuid_1.v4)();
         let attachments = [];
@@ -65,8 +66,8 @@ class PostService {
             await (0, s3_config_1.deleteFiles)({ urls: attachments || [] });
             throw new classError_1.AppError("Failed to create post", 500);
         }
-        if (req.body.tags.length)
-            events_js_1.eventEmitter.emit("mentionTags", { postId: post._id, authorId: req.user?._id, tags: req.body.tags });
+        if (req?.body?.tags?.length)
+            events_1.eventEmitter.emit("mentionTags", { postId: post._id, authorId: req.user?._id, tags: req.body.tags });
         return res.status(201).json({ message: "Post created successfully", post });
     };
     likePost = async (req, res, next) => {
@@ -75,10 +76,10 @@ class PostService {
         let updateQuery = { $addToSet: { likes: req.user?._id } };
         if (action === post_validation_1.ActionType.unlike)
             updateQuery = { $pull: { likes: req.user?._id } };
-        const post = await this._postModel.findOneAndUpdate({ _id: postId, $or: (0, helperFunctions_1.AvailabilityQuery)(req) }, updateQuery, { new: true });
+        const post = await this._postModel.findOneAndUpdate({ _id: postId, $or: (0, helperFunctions_1.AvailabilityQuery)(req?.user) }, { ...updateQuery }, { new: true });
         if (!post)
             throw new classError_1.AppError(`Failed to ${action || post_validation_1.ActionType.like} post`, 400);
-        return res.status(201).json({ message: `Post ${action || post_validation_1.ActionType.like}` });
+        return res.status(201).json({ message: `Post ${action || post_validation_1.ActionType.like}d` });
     };
     updatePost = async (req, res, next) => {
         const { postId } = req.params;
@@ -173,6 +174,27 @@ class PostService {
         if (!result)
             throw new classError_1.AppError("Post not found", 404);
         return res.status(200).json({ message: "Post, Comments, and replies deleted successfully" });
+    };
+    getAllPostsGQL = async (parent, args) => {
+        const posts = await this._postModel.find({});
+        return posts;
+    };
+    getAllPostsPaginatedGQL = async (parent, args) => {
+        let { page = 1, limit = 5 } = args;
+        const posts = await this._postModel.getAllPaginated({ filter: {}, query: { page, limit } });
+        return posts;
+    };
+    likePostGQL = async (parent, args, context) => {
+        const { postId, action } = args;
+        await (0, validation_1.ValidationGQL)(post_validation_1.likePostGQLSchema, args);
+        const { user } = await (0, authentication_1.AuthenticationGQL)(context.req.headers.authorization);
+        let updateQuery = action === post_validation_1.ActionType.like ? { $addToSet: { likes: user?._id } } : { $pull: { likes: user?._id } };
+        const post = await this._postModel.findOneAndUpdate({ _id: postId, $or: (0, helperFunctions_1.AvailabilityQuery)(user) }, { ...updateQuery }, { new: true });
+        if (!post)
+            throw new graphql_1.GraphQLError(`Post not found`, { extensions: { http: { code: 404 } } });
+        if (action === post_validation_1.ActionType.like)
+            (0, gateway_js_1.getIo)().to(gateway_js_1.connectionSockets.get(post.createdBy.toString())).emit("likePost", { postId, userId: user._id });
+        return `Post ${action || post_validation_1.ActionType.like}d`;
     };
 }
 exports.default = new PostService();
