@@ -80,7 +80,7 @@ class UserService {
             throw new classError_1.AppError("User not found or already confirmed", 404);
         if (!await (0, hash_1.Compare)(otp, user?.otp))
             throw new classError_1.AppError("Inalid OTP", 400);
-        this._userModel.updateOne({ email: user?.email }, { isConfirmed: true, $unset: { otp: "" } });
+        await this._userModel.updateOne({ email: user?.email }, { isConfirmed: true, $unset: { otp: "" } });
         return res.status(200).json({ message: "Email confirmed" });
     };
     login = async (req, res, next) => {

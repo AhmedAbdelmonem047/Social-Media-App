@@ -56,7 +56,7 @@ class UserService {
         if (!await Compare(otp, user?.otp!))
             throw new AppError("Inalid OTP", 400);
 
-        this._userModel.updateOne({ email: user?.email }, { isConfirmed: true, $unset: { otp: "" } })
+        await this._userModel.updateOne({ email: user?.email }, { isConfirmed: true, $unset: { otp: "" } })
         return res.status(200).json({ message: "Email confirmed" });
     }
     // ====================================== //
